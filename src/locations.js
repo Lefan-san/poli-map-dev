@@ -1,5 +1,5 @@
 // locations.js
-// Data for PUO Buildings (Coordinates converted to [Lng, Lat])
+// Data for PUO Buildings (Coordinates converted to [Lat, Lng])
 
 export const locations = [
     {
@@ -34,15 +34,15 @@ export const locations = [
     },
     {
         name: "Dewan Jubli Perak",
-        coords: [101.12382611851136, 4.587551275310104],
+        coords: [4.587560151474034, 101.12381542138613],
         desc: "Main auditorium for events and ceremonies.",
-        img: []
+        img: ["image/DEWAN_JUBLI_PERAK.jpg"]
     },
     {
         name: "Cafe A (JKA Cafeteria)",
-        coords: [101.12495330042234, 4.587925339876982],
+        coords: [4.587886698466278, 101.12498833422116],
         desc: "Cafeteria near Dewan Warisan.",
-        img: []
+        img: ["image/KANTIN_A.jpg"]
     },
     {
         name: "Cafe B (JKE Cafeteria)",
@@ -58,20 +58,26 @@ export const locations = [
     },
     {
         name: "Kolej Kediaman PFI",
-        coords: [101.1205, 4.5875],
+        coords: [4.589539460460139, 101.12152033870018],
         desc: "Student accommodation for PFI students.",
         img: []
-    },
-    {
-        name: "Kamsis (Residential College)",
-        coords: [101.1235, 4.5865],
-        desc: "Student accommodation area.",
-        img: []
-    },
+    },   
     {
         name: "Dewan Seri Kinta",
-        coords: [101.12338420289376, 4.591193211938619],
+        coords: [4.588055803102894, 101.12531008087336],
         desc: "Main hall for events and activities.",
+        img: ["image/DEWAN_KINTA.jpg"]
+    },
+        {
+        name: "Dewan Warisan",
+        coords: [4.588055803102894, 101.12531008087336],
+        desc: "Main hall for events and activities.",
+        img: ["image/dewan_warisan/1.jpg"]
+    },
+    {
+        name: "Pondok Guard",
+        coords: [4.588740968020849, 101.12620219660123],
+        desc: "Safety Place.",
         img: []
     }
 ];
