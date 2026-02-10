@@ -1,5 +1,17 @@
 <template>
   <div class="w-full h-screen bg-gray-100">
+    <!-- Admin Button -->
+    <button
+      @click="$refs.adminPanel.toggleAdmin()"
+      class="admin-button"
+      title="Admin Dashboard"
+    >
+      <i class="bi bi-gear-fill"></i>
+    </button>
+
+    <!-- Admin Panel -->
+    <AdminPanel ref="adminPanel" @locations-updated="handleLocationsUpdated" />
+
     <!-- Map Container -->
     <div id="map" class="w-full h-full"></div>
 
@@ -97,13 +109,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import mapboxgl from 'mapbox-gl'
-import 'mapbox-gl/dist/mapbox-gl.css'
-import { locations } from './locations.js'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import AdminPanel from './components/AdminPanel.vue'
+import { fetchLocations } from './services/locationService.js'
 import './style.css'
-
-// Set your Mapbox access token here
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN
 
 // Reactive state
 const currentIndex = ref(-1)
@@ -111,45 +121,81 @@ const currentImageIndex = ref(0)
 const showPanel = ref(false)
 const showModal = ref(false)
 const markerObjects = ref([])
+const locations = ref([])
+const adminPanel = ref(null)
 let map
 
 const currentLocation = computed(() => {
-  return currentIndex.value >= 0 ? locations[currentIndex.value] : null
+  return currentIndex.value >= 0 ? locations.value[currentIndex.value] : null
 })
 
-onMounted(() => {
-  initializeMap()
+onMounted(async () => {
+  try {
+    locations.value = await fetchLocations()
+    initializeMap()
+  } catch (err) {
+    console.error('Failed to load locations:', err)
+  }
 })
 
 function initializeMap() {
-  map = new mapboxgl.Map({
-    container: 'map',
-    style: 'mapbox://styles/mapbox/streets-v12',
-    center: [101.1215, 4.5884],
-    zoom: 16,
-  })
+  // Initialize Leaflet map
+  map = L.map('map').setView([4.5884, 101.1215], 16)
+
+  // Add base layer (OpenStreetMap)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19,
+  }).addTo(map)
 
   // Create markers for all locations
-  locations.forEach((loc, index) => {
-    const el = document.createElement('div')
-    el.className = 'custom-marker group'
-
-    el.innerHTML = `
-      <div class="marker-pulse"></div>
-      <div class="marker-label">${loc.name}</div>
-      <div class="relative flex items-center justify-center w-8 h-8 bg-blue-600 rounded-full border-2 border-white shadow-xl transition-transform duration-300 group-hover:scale-125 group-hover:bg-blue-500">
-        <i class="bi bi-geo-alt-fill text-white text-sm"></i>
-      </div>
-    `
-
-    const marker = new mapboxgl.Marker(el).setLngLat(loc.coords).addTo(map)
-
-    el.addEventListener('click', (e) => {
-      e.stopPropagation()
-      showLocation(index)
+  locations.value.forEach((loc, index) => {
+    // Create custom marker icon with HTML
+    const markerIcon = L.divIcon({
+      html: `
+        <div class="custom-marker-content">
+          <div class="marker-pulse"></div>
+          <div class="relative flex items-center justify-center w-8 h-8 bg-blue-600 rounded-full border-2 border-white shadow-xl transition-transform duration-300 hover:scale-125 hover:bg-blue-500">
+            <i class="bi bi-geo-alt-fill text-white text-sm"></i>
+          </div>
+        </div>
+      `,
+      className: 'custom-marker-wrapper',
+      iconSize: [32, 32],
+      iconAnchor: [16, 32],
+      popupAnchor: [0, -32],
     })
 
-    markerObjects.value.push({ marker, element: el })
+    // Add marker to map with custom label on hover
+    const marker = L.marker([loc.coords[1], loc.coords[0]], {
+      icon: markerIcon,
+      title: loc.name,
+    }).addTo(map)
+
+    // Create wrapper element for hover label
+    const markerElement = marker.getElement()
+    if (markerElement) {
+      markerElement.classList.add('group')
+      
+      const labelDiv = document.createElement('div')
+      labelDiv.className = 'marker-label'
+      labelDiv.textContent = loc.name
+      markerElement.appendChild(labelDiv)
+
+      markerElement.addEventListener('click', (e) => {
+        e.stopPropagation()
+        showLocation(index)
+      })
+    }
+
+    markerObjects.value.push({ marker, element: markerElement })
+  })
+
+  // Close panel when clicking on map
+  map.on('click', () => {
+    if (showPanel.value) {
+      closePanel()
+    }
   })
 }
 
@@ -157,8 +203,12 @@ function showLocation(index) {
   currentIndex.value = index
   currentImageIndex.value = 0
   showPanel.value = true
-  const loc = locations[index]
-  map.flyTo({ center: loc.coords, zoom: 17.5 })
+  const loc = locations.value[index]
+  
+  // Use flyTo for smooth animation
+  map.flyTo([loc.coords[1], loc.coords[0]], 17.5, {
+    duration: 2,
+  })
 }
 
 function closePanel() {
@@ -198,6 +248,23 @@ function openGoogleMaps() {
       name,
     )}/@${coords[1]},${coords[0]},17z`
     window.open(url, '_blank')
+  }
+}
+
+async function handleLocationsUpdated() {
+  try {
+    // Reload locations from Supabase
+    locations.value = await fetchLocations()
+    // Reinitialize map with new locations
+    if (map) {
+      map.remove()
+    }
+    markerObjects.value = []
+    currentIndex.value = -1
+    showPanel.value = false
+    initializeMap()
+  } catch (err) {
+    console.error('Failed to reload locations:', err)
   }
 }
 </script>
@@ -262,5 +329,35 @@ function openGoogleMaps() {
 
 .modal-nav-btn.next {
   right: 30px;
+}
+
+.admin-button {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s;
+}
+
+.admin-button:hover {
+  background: #2563eb;
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.6);
+}
+
+.admin-button:active {
+  transform: scale(0.95);
 }
 </style>
